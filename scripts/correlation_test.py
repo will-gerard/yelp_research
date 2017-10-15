@@ -1,9 +1,27 @@
 #!/usr/bin/env python
 
+'''
+Determines the significance of correlation between friendship in a Yelp friend
+graph and equal ratings. Reads the Yelp friends graph and the user ratings map and
+performs randomization on the data. A chi square value is calculated on the data
+set as a measure of correlation. This value is calculated for each individual restaurant
+when possible and summed together to form a larger chi square statistic.
+
+Restaurants where expected value in the chisq contingency table are ignored.
+
+This is repeated RAND_NUM times on randomized data to create a distribution,
+and then the percentile of the actual chi square statistic for the real data set
+is determined based on the randomized data to determine significance.
+
+Argument 1: 'score' or 'edge' to determine if scores should be randomized or
+    edges in the friend graph
+'''
+
 from init_friend_graph import init_friend_graph
 import json
 from random import shuffle
 from itertools import combinations
+import sys
 
 RAND_NUM = 100
 
@@ -22,8 +40,7 @@ def main():
         user_ratings = rest_user_ratings_map[r_id]
 
         # generate random chisq values first:
-        rand_user_ratings = get_random_score_ratings(user_ratings, RAND_NUM)
-        chisq_vals = [calc_chi_sq(x, friend_graph) for x in rand_user_ratings]
+        chisq_vals = gen_random_chisq_vals(user_ratings, friend_graph)
         random_chisq_values.append(chisq_vals)
 
         # calculate chisq value for actual graph
@@ -52,6 +69,26 @@ def read_restaurant_by_user_ratings():
     with open('../data/restaurants') as restaurant_f:
         user_ratings_map = json.load(restaurant_f)
         return user_ratings_map
+
+
+def gen_random_chisq_vals(user_ratings, graph):
+    '''
+    Generates random chisq values for a particular restaurant, based on whether
+    command line argument to randomize scores or graph edges. Defaults to score if
+    no argument is supplied
+    '''
+    if len(sys.argv) > 1:
+        rand_type = sys.argv[1]
+    else:
+        rand_type = 'score'
+
+    if rand_type == 'score':
+        rand_user_ratings = get_random_score_ratings(user_ratings, RAND_NUM)
+        return [calc_chi_sq(x, graph) for x in rand_user_ratings]
+    elif rand_type == 'edge':
+        pass #TODO IMPLEMENT EDGE RANDOMIZATION @will_gerard
+    else:
+        raise Exception("Argument 1 must be either 'score' or 'edge'")
 
 
 def get_random_score_ratings(user_ratings_list, num):
