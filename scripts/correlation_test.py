@@ -19,6 +19,7 @@ Argument 1: 'score' or 'edge' to determine if scores should be randomized or
 
 from init_friend_graph import init_friend_graph
 import json
+import random
 from random import shuffle
 from itertools import combinations
 import sys
@@ -36,11 +37,15 @@ def main():
     # Running sum of the chi sq values for each restaurant of the real graph
     real_chisq_sum = 0
 
+    counter = 0
+
     for r_id in rest_user_ratings_map:
         user_ratings = rest_user_ratings_map[r_id]
 
         # generate random chisq values first:
         chisq_vals = gen_random_chisq_vals(user_ratings, friend_graph)
+        print("calculated " + str(counter) + " of " + str(len(rest_user_ratings_map)))
+        counter+=1
         random_chisq_values.append(chisq_vals)
 
         # calculate chisq value for actual graph
@@ -77,6 +82,7 @@ def gen_random_chisq_vals(user_ratings, graph):
     command line argument to randomize scores or graph edges. Defaults to score if
     no argument is supplied
     '''
+
     if len(sys.argv) > 1:
         rand_type = sys.argv[1]
     else:
@@ -86,7 +92,12 @@ def gen_random_chisq_vals(user_ratings, graph):
         rand_user_ratings = get_random_score_ratings(user_ratings, RAND_NUM)
         return [calc_chi_sq(x, graph) for x in rand_user_ratings]
     elif rand_type == 'edge':
-        pass #TODO IMPLEMENT EDGE RANDOMIZATION @will_gerard
+        rand_edges = get_random_edges(user_ratings, graph, RAND_NUM)
+        user_ratings_dict = {}
+        for user in user_ratings:
+            user_ratings_dict[user[0]] = user[1]
+        return [calc_chi_sq(user_ratings_dict, random_graph_x) for random_graph_x in rand_edges]
+        #return calc_chi_sq(user_ratings, rand_edges[1])
     else:
         raise Exception("Argument 1 must be either 'score' or 'edge'")
 
@@ -106,6 +117,66 @@ def get_random_score_ratings(user_ratings_list, num):
         ans.append(permute_dict)
     return ans
 
+def reverse(edge):
+    start = edge[0]
+    end = edge[1]
+    result = (end, start)
+    return result
+
+def get_random_edges(user_ratings, graph, num_permutations):
+    '''
+    Takes in user ratings for a particular restaurant, the friend graph, and the number
+    randomly generated permutations to create
+    Return a list of user->list of friends dictionaries
+    '''
+
+    #create the original set of edges
+    edges = []
+    for user in user_ratings:
+        start = user[0]         
+        for friend in graph[start]:
+            e = (start, friend)
+            edges.append(e)
+
+    #the list of randomized adjacency lists to return
+    randomized_graphs = []
+
+    for i in range(num_permutations):
+        randomized_edges = list(edges)
+        #pick two random edges from the list and swap their endpoints
+        for i in range(len(edges)):
+            first = random.choice(randomized_edges)
+            second = random.choice(randomized_edges)
+            while second is first:
+                second = random.choice(randomized_edges)
+            new_first = (first[0], second[1])
+            new_second = (second[0], first[1])
+            randomized_edges.remove(first)
+            randomized_edges.remove(second)
+            #randomized_edges.remove(reverse(first))
+            #randomized_edges.remove(reverse(second))
+            randomized_edges.append(new_first)
+            randomized_edges.append(new_second)
+            #randomized_edges.append(reverse(new_first))
+            #randomized_edges.append(reverse(new_second))
+
+        adjlist = {}
+
+        #use these randomly generated edges to create an adjacency list
+        for e in randomized_edges:
+            userid = e[0]
+            if userid in adjlist:
+                #add end of this edge to the user in the adjacency list
+                friends = adjlist[userid]
+                friends.append(e[1])
+                adjlist[userid] = friends
+            else:
+                #create a new entry in the adjacency list for this new user
+                adjlist[e[0]] = [e[1]]
+        randomized_graphs.append(adjlist)
+
+    return randomized_graphs
+
 
 def calc_chi_sq(user_ratings_map, graph):
     '''
@@ -113,6 +184,7 @@ def calc_chi_sq(user_ratings_map, graph):
     the chi square value. If an exp value is 0, returns 0 since the exp value
     will be 0 for all permutations of graphs/scores
     '''
+    
     users = list(user_ratings_map.keys())
     user_pairs = list(combinations(users, 2))
     a = 0 # friends and share rating
