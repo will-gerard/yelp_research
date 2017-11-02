@@ -18,6 +18,7 @@ Argument 1: 'score' or 'edge' to determine if scores should be randomized or
 '''
 
 from init_friend_graph import init_friend_graph
+from collections import OrderedDict
 import json
 from random import shuffle
 from itertools import combinations
@@ -38,6 +39,7 @@ def main():
 
     for r_id in rest_user_ratings_map:
         user_ratings = rest_user_ratings_map[r_id]
+        user_ratings = remove_dups(user_ratings)
 
         # generate random chisq values first:
         chisq_vals = gen_random_chisq_vals(user_ratings, friend_graph)
@@ -70,6 +72,15 @@ def read_restaurant_by_user_ratings():
         user_ratings_map = json.load(restaurant_f)
         return user_ratings_map
 
+
+def remove_dups(user_ratings):
+    '''
+    Resolves multiple reviews from the same user. Only keeps the last review score
+    found from the user. Takes in a list of tuples (user_id, rating) and returns a
+    modified list of tuples.
+    '''
+    d = OrderedDict(user_ratings)
+    return list(d.items())
 
 def gen_random_chisq_vals(user_ratings, graph):
     '''
