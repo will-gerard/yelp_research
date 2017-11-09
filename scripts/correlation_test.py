@@ -196,6 +196,9 @@ def get_random_edge_graphs(edges, num_permutations):
         e = copy.deepcopy(edges)
         #iterate through each of the edges in the list
         for edge in randomized_edges:
+            #if this edge has already been swapped out of the randomized set, skip it
+            if edge not in e:
+                continue
             found_edge_to_swap = False
             counter = 0
             while found_edge_to_swap is False and counter < len(randomized_edges):
@@ -258,16 +261,16 @@ def calc_chi_sq(user_ratings_map, graph):
     c = 0 # not friends and share rating
     d = 0 # not friends and don't share rating
     for user1, user2 in user_pairs:
-        if user2 in graph[user1]:
-            if user_ratings_map[user1] == user_ratings_map[user2]:
-                a += 1
-            else:
-                b += 1
-        else:
+        if user1 not in graph or user2 not in graph[user1]:
             if user_ratings_map[user1] == user_ratings_map[user2]:
                 c += 1
             else:
                 d += 1
+        else:
+            if user_ratings_map[user1] == user_ratings_map[user2]:
+                a += 1
+            else:
+                b += 1
     num = ((a*d-c*b)**2) * (a+b+c+d)
     denom = (a+b) * (c+d) * (b+d) * (a+c)
     if denom == 0:
