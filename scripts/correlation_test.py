@@ -24,8 +24,9 @@ import random
 from random import shuffle
 from itertools import combinations
 import sys
+import copy
 
-RAND_NUM = 100
+RAND_NUM = 10
 
 def main():
     rest_user_ratings_map = read_restaurant_by_user_ratings()
@@ -103,11 +104,12 @@ def gen_random_chisq_vals(user_ratings, graph):
         rand_user_ratings = get_random_score_ratings(user_ratings, RAND_NUM)
         return [calc_chi_sq(x, graph) for x in rand_user_ratings]
     elif rand_type == 'edge':
-        rand_edges = get_random_edges(user_ratings, graph, RAND_NUM)
+        edge_set = get_edge_set(user_ratings, graph)
+        rand_graphs = get_random_edge_graphs(edge_set, RAND_NUM)
         user_ratings_dict = {}
         for user in user_ratings:
             user_ratings_dict[user[0]] = user[1]
-        return [calc_chi_sq(user_ratings_dict, random_graph_x) for random_graph_x in rand_edges]
+        return [calc_chi_sq(user_ratings_dict, random_graph_x) for random_graph_x in rand_graphs]
         #return calc_chi_sq(user_ratings, rand_edges[1])
     else:
         raise Exception("Argument 1 must be either 'score' or 'edge'")
@@ -128,62 +130,115 @@ def get_random_score_ratings(user_ratings_list, num):
         ans.append(permute_dict)
     return ans
 
-def reverse(edge):
-    start = edge[0]
-    end = edge[1]
-    result = (end, start)
+def sort(edge):
+    edge_list = sorted([e for e in edge])
+    result = (edge_list[0], edge_list[1])
     return result
 
-def get_random_edges(user_ratings, graph, num_permutations):
+def get_edge_set(user_ratings, graph):
     '''
-    Takes in user ratings for a particular restaurant, the friend graph, and the number
-    randomly generated permutations to create
-    Return a list of user->list of friends dictionaries
+    Create the set of birectional edges in the graph of users who have reviewed a particular restaurant.
+    user_ratings is a list of tuples (user, rating)
+    graph is a list of lists, the first entry in each list is a user, each subsequent entry is a friend of the user
+
+    return the set of bidirectional edges to be randomized
     '''
 
+    #get the set of users in the user_ratings list
+    user_set = set()
+    for u in user_ratings:
+        user_set.add(u[0])
+
     #create the original set of edges
-    edges = []
+    edges = set()
+    #for each user that has reviewed this restaurant
     for user in user_ratings:
-        start = user[0]         
+        start = user[0]    
+        #iterate over this user's friends     
         for friend in graph[start]:
-            e = (start, friend)
-            edges.append(e)
+            #check to see if this friend has reviewed the restaurant
+            if friend in user_set:
+                e = sort((start, friend))
+                edges.add(e)
+
+    return edges
+
+def is_valid_swap(edge_one, edge_two, edges):
+    '''
+    determine if edge two is a valid swap for edge one
+    edge_one and edge_two are tuples representing bidirectional edges
+    edges is the set of edges
+    '''
+    new_edge_one = sort((edge_two[0],edge_one[1]))
+    new_edge_two = sort((edge_one[0],edge_two[1]))
+
+    if new_edge_one in edges:
+        return False
+    if new_edge_two in edges:
+        return False
+
+    return True
+
+
+
+def get_random_edge_graphs(edges, num_permutations):
+    '''
+    Takes in the set of bidrectional edges representing the edges in the graph of users who have reviewed this restaurant
+    Return a list of user->list of friends dictionaries, each representing a randomized adjacency list
+    '''
 
     #the list of randomized adjacency lists to return
     randomized_graphs = []
 
     for i in range(num_permutations):
         randomized_edges = list(edges)
-        #pick two random edges from the list and swap their endpoints
-        for i in range(len(edges)):
-            first = random.choice(randomized_edges)
-            second = random.choice(randomized_edges)
-            while second is first:
-                second = random.choice(randomized_edges)
-            new_first = (first[0], second[1])
-            new_second = (second[0], first[1])
-            randomized_edges.remove(first)
-            randomized_edges.remove(second)
-            #randomized_edges.remove(reverse(first))
-            #randomized_edges.remove(reverse(second))
-            randomized_edges.append(new_first)
-            randomized_edges.append(new_second)
-            #randomized_edges.append(reverse(new_first))
-            #randomized_edges.append(reverse(new_second))
+        #create a copy of the edges set
+        e = copy.deepcopy(edges)
+        #iterate through each of the edges in the list
+        for edge in randomized_edges:
+            found_edge_to_swap = False
+            counter = 0
+            while found_edge_to_swap is False and counter < len(randomized_edges):
+                #somehow still getting numbers up to and including the upper bound, specification says this shouldn't be so
+                rand_index = random.randint(0, len(randomized_edges)-1)
+                #if this edge is still in the set and is an appropriate edge to swap, swap with it
+                rand_edge = randomized_edges[rand_index]
+                if rand_edge in e and is_valid_swap(rand_edge, edge, e):
+                    edge_one = (rand_edge[0], edge[1])
+                    edge_two = (edge[0], rand_edge[1])
+                    e.remove(edge)
+                    e.remove(rand_edge)
+                    e.add(edge_one)
+                    e.add(edge_two)
+                    found_edge_to_swap = True
+                else:
+                    counter+=1
 
         adjlist = {}
 
         #use these randomly generated edges to create an adjacency list
-        for e in randomized_edges:
-            userid = e[0]
+        for edge in e:
+            userid = edge[0]
             if userid in adjlist:
                 #add end of this edge to the user in the adjacency list
                 friends = adjlist[userid]
-                friends.append(e[1])
+                friends.append(edge[1])
                 adjlist[userid] = friends
             else:
                 #create a new entry in the adjacency list for this new user
-                adjlist[e[0]] = [e[1]]
+                adjlist[edge[0]] = [edge[1]]
+
+            #do this again for the opposite direction, since the edges are bidirectional
+            userid = edge[1]
+            if userid in adjlist:
+                #add end of this edge to the user in the adjacency list
+                friends = adjlist[userid]
+                friends.append(edge[0])
+                adjlist[userid] = friends
+            else:
+                #create a new entry in the adjacency list for this new user
+                adjlist[edge[1]] = [edge[0]]
+
         randomized_graphs.append(adjlist)
 
     return randomized_graphs
