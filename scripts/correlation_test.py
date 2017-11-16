@@ -130,7 +130,7 @@ def get_random_score_ratings(user_ratings_list, num):
         ans.append(permute_dict)
     return ans
 
-def sort(edge):
+def sort_tuple(edge):
     edge_list = sorted([e for e in edge])
     result = (edge_list[0], edge_list[1])
     return result
@@ -158,28 +158,25 @@ def get_edge_set(user_ratings, graph):
         for friend in graph[start]:
             #check to see if this friend has reviewed the restaurant
             if friend in user_set:
-                e = sort((start, friend))
+                e = sort_tuple((start, friend))
                 edges.add(e)
 
     return edges
 
-def is_valid_swap(edge_one, edge_two, edges):
+def is_valid_swap(edge_one, edge_two, edge_set):
     '''
-    determine if edge two is a valid swap for edge one
-    edge_one and edge_two are tuples representing bidirectional edges
-    edges is the set of edges
+    Take in two bidirectional edges, represented by tuples, and a set of edges.
+    Return true if the tuples can are valid edges to add back to the set.
     '''
-    new_edge_one = sort((edge_two[0],edge_one[1]))
-    new_edge_two = sort((edge_one[0],edge_two[1]))
-
-    if new_edge_one in edges:
+    #edges should not already exist in the set
+    if edge_one in edge_set or edge_two in edge_set:
         return False
-    if new_edge_two in edges:
+
+    #edges should be made up of two distinct nodes
+    if edge_one[0] == edge_one[1] or edge_two[0] == edge_two[1]:
         return False
 
     return True
-
-
 
 def get_random_edge_graphs(edges, num_permutations):
     '''
@@ -191,36 +188,54 @@ def get_random_edge_graphs(edges, num_permutations):
     randomized_graphs = []
 
     for i in range(num_permutations):
-        randomized_edges = list(edges)
-        #create a copy of the edges set
-        e = copy.deepcopy(edges)
-        #iterate through each of the edges in the list
-        for edge in randomized_edges:
-            #if this edge has already been swapped out of the randomized set, skip it
-            if edge not in e:
-                continue
-            found_edge_to_swap = False
-            counter = 0
-            while found_edge_to_swap is False and counter < len(randomized_edges):
-                #somehow still getting numbers up to and including the upper bound, specification says this shouldn't be so
-                rand_index = random.randint(0, len(randomized_edges)-1)
-                #if this edge is still in the set and is an appropriate edge to swap, swap with it
-                rand_edge = randomized_edges[rand_index]
-                if rand_edge in e and is_valid_swap(rand_edge, edge, e):
-                    edge_one = (rand_edge[0], edge[1])
-                    edge_two = (edge[0], rand_edge[1])
-                    e.remove(edge)
-                    e.remove(rand_edge)
-                    e.add(edge_one)
-                    e.add(edge_two)
-                    found_edge_to_swap = True
+        #and a list to calculate random indices to swap
+        edge_list = list(edges)
+        #if there are at least 5 edges, randomize the graph
+        if len(edges) >= 5:
+            #create a copy of the edges set
+            edge_set = copy.deepcopy(edges)
+            #Espinosa's constant
+            numEdgesToSwap = 10*len(edges)
+            maxNumAttempts = 100*len(edges)
+            #maintain the number of successful swaps
+            swaps = 0
+            #and the number of attempted swaps made to move on if it is taking too long to find enough valid ones
+            attempts = 0
+            while swaps < numEdgesToSwap and attempts < maxNumAttempts:
+                attempts+=1
+                #pick two random indices
+                rand_indices = random.sample(range(0, len(edge_list)), 2)
+                #get the edges they point two
+                edge_one = edge_list[rand_indices[0]]
+                edge_two = edge_list[rand_indices[1]]
+                #swap them
+                swapped_one = sort_tuple((edge_one[0], edge_two[1]))
+                swapped_two = sort_tuple((edge_two[0], edge_one[1]))
+                #check to see if the edges represent a valid swap
+                if is_valid_swap(swapped_one, swapped_two, edge_set):
+                    #update the list
+                    edge_list[rand_indices[0]] = swapped_one
+                    edge_list[rand_indices[1]] = swapped_two
+                    #update the set
+                    edge_set.add(swapped_one)
+                    edge_set.add(swapped_two)
+                    try:
+                        edge_set.remove(edge_one)
+                        edge_set.remove(edge_two)
+                    except:
+                        print("error: " + str(sys.exc_info()[0]))
+                        print("edge one: " + str(edge_one))
+                        print("edge two: " + str(edge_two))
+                        print('ERROR REMOVING EDGE')
+                    
+                    swaps += 1
                 else:
-                    counter+=1
+                    continue
 
         adjlist = {}
 
         #use these randomly generated edges to create an adjacency list
-        for edge in e:
+        for edge in edge_list:
             userid = edge[0]
             if userid in adjlist:
                 #add end of this edge to the user in the adjacency list
