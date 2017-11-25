@@ -30,6 +30,7 @@ RAND_NUM = 10
 
 def main():
     rest_user_ratings_map = read_restaurant_by_user_ratings()
+    num_restaurants = len(rest_user_ratings_map)
     friend_graph = init_friend_graph('../data/yelpFriends.txt')
 
     # A list of lists, where each list corresponds to a restaurant subgraph
@@ -43,16 +44,16 @@ def main():
 
     for r_id in rest_user_ratings_map:
         user_ratings = rest_user_ratings_map[r_id]
-        user_ratings = remove_dups(user_ratings)
-
+        user_ratings_dict = remove_dups_to_dict(user_ratings)
+        combinations = get_user_combos_from_ratings_map(user_ratings_dict)
         # generate random chisq values first:
-        chisq_vals = gen_random_chisq_vals(user_ratings, friend_graph)
-        print("calculated " + str(counter) + " of " + str(len(rest_user_ratings_map)))
-        counter+=1
+        chisq_vals = gen_random_chisq_vals(user_ratings_dict, friend_graph, combinations)
+        print("calculated " + str(counter) + " of " + str(num_restaurants))
+        counter += 1
         random_chisq_values.append(chisq_vals)
 
         # calculate chisq value for actual graph
-        real_chisq_sum += calc_chi_sq(dict(user_ratings), friend_graph)
+        real_chisq_sum += calc_chi_sq(user_ratings_dict, friend_graph, combinations)
 
     # list of chisq sums for RAND_NUM trials
     sum_rand_chisq = [sum(i) for i in zip(*random_chisq_values)]
@@ -79,89 +80,91 @@ def read_restaurant_by_user_ratings():
         return user_ratings_map
 
 
-def remove_dups(user_ratings):
+def remove_dups_to_dict(user_ratings):
     '''
     Resolves multiple reviews from the same user. Only keeps the last review score
     found from the user. Takes in a list of tuples (user_id, rating) and returns a
-    modified list of tuples.
+    dict of those tuples, with duplicate keys removed
     '''
     d = OrderedDict(user_ratings)
-    return list(d.items())
+    return dict(d)
 
-def gen_random_chisq_vals(user_ratings, graph):
+
+def get_user_combos_from_ratings_map(user_ratings_map):
     '''
+    Returns a list of tuples of all combinations between users, given the ratings
+    map of user_id => rating
+    '''
+    users = list(user_ratings_map.keys())
+    return list(combinations(users, 2))
+
+
+def gen_random_chisq_vals(ratings_map, graph, combinations):
+    '''
+    Takes in a dict of user_id => ratings, a dict of user_id to list of user_id friends,
+    and a list of tuples of all combinations of users.
     Generates random chisq values for a particular restaurant, based on whether
     command line argument to randomize scores or graph edges. Defaults to score if
     no argument is supplied
     '''
-
     if len(sys.argv) > 1:
         rand_type = sys.argv[1]
     else:
         rand_type = 'score'
 
     if rand_type == 'score':
-        rand_user_ratings = get_random_score_ratings(user_ratings, RAND_NUM)
-        return [calc_chi_sq(x, graph) for x in rand_user_ratings]
+        rand_user_ratings = get_random_score_ratings(ratings_map, RAND_NUM)
+        return [calc_chi_sq(x, graph, combinations) for x in rand_user_ratings]
     elif rand_type == 'edge':
-        edge_set = get_edge_set(user_ratings, graph)
+        edge_set = get_edge_set(ratings_map, graph)
         rand_graphs = get_random_edge_graphs(edge_set, RAND_NUM)
-        user_ratings_dict = {}
-        for user in user_ratings:
-            user_ratings_dict[user[0]] = user[1]
-        return [calc_chi_sq(user_ratings_dict, random_graph_x) for random_graph_x in rand_graphs]
-        #return calc_chi_sq(user_ratings, rand_edges[1])
+        return [calc_chi_sq(ratings_map, random_graph_x, combinations) for random_graph_x in rand_graphs]
     else:
         raise Exception("Argument 1 must be either 'score' or 'edge'")
 
 
-def get_random_score_ratings(user_ratings_list, num):
+def get_random_score_ratings(ratings_map, num):
     '''
-    Takes in a list of (users, ratings) and returns a list of num dicts with the
+    Takes in a dict of user_id => ratings and returns a list of num dicts with the
     ratings permuted in each one
     '''
-    length = len(user_ratings_list)
     ans = []
+    user_list = list(ratings_map.keys())
+    rating_list = list(ratings_map.values())
     for i in range(num):
-        user_list = [entry[0] for entry in user_ratings_list]
-        rating_list = [entry[1] for entry in user_ratings_list]
         shuffle(rating_list)
         permute_dict = dict(zip(user_list, rating_list))
         ans.append(permute_dict)
     return ans
+
 
 def sort_tuple(edge):
     edge_list = sorted([e for e in edge])
     result = (edge_list[0], edge_list[1])
     return result
 
-def get_edge_set(user_ratings, graph):
+
+def get_edge_set(ratings_map, graph):
     '''
     Create the set of birectional edges in the graph of users who have reviewed a particular restaurant.
-    user_ratings is a list of tuples (user, rating)
+    ratings_map is a dict of user_id => rating
     graph is a list of lists, the first entry in each list is a user, each subsequent entry is a friend of the user
 
     return the set of bidirectional edges to be randomized
     '''
-
-    #get the set of users in the user_ratings list
-    user_set = set()
-    for u in user_ratings:
-        user_set.add(u[0])
-
     #create the original set of edges
     edges = set()
     #for each user that has reviewed this restaurant
-    for user in user_ratings:
-        start = user[0]    
-        #iterate over this user's friends     
+    for user in ratings_map:
+        start = user
+        #iterate over this user's friends
         for friend in graph[start]:
             #check to see if this friend has reviewed the restaurant
-            if friend in user_set:
+            if friend in ratings_map:
                 e = sort_tuple((start, friend))
                 edges.add(e)
-
     return edges
+
 
 def is_valid_swap(edge_one, edge_two, edge_set):
     '''
@@ -177,6 +180,7 @@ def is_valid_swap(edge_one, edge_two, edge_set):
         return False
 
     return True
+
 
 def get_random_edge_graphs(edges, num_permutations):
     '''
@@ -227,7 +231,7 @@ def get_random_edge_graphs(edges, num_permutations):
                         print("edge one: " + str(edge_one))
                         print("edge two: " + str(edge_two))
                         print('ERROR REMOVING EDGE')
-                    
+
                     swaps += 1
                 else:
                     continue
@@ -262,15 +266,13 @@ def get_random_edge_graphs(edges, num_permutations):
     return randomized_graphs
 
 
-def calc_chi_sq(user_ratings_map, graph):
+def calc_chi_sq(user_ratings_map, graph, user_pairs):
     '''
-    Takes a mapping from user_id => ratings and adjacency list graph. Calculates
-    the chi square value. If an exp value is 0, returns 0 since the exp value
-    will be 0 for all permutations of graphs/scores
+    Takes a dict of user_id => ratings, an adjacency list graph, and a list of
+    tuples of all user pairs for the restaurant.
+    Calculates the chi square value. If an exp value
+    is 0, returns 0 since the exp value will be 0 for all permutations of graphs/scores
     '''
-    
-    users = list(user_ratings_map.keys())
-    user_pairs = list(combinations(users, 2))
     a = 0 # friends and share rating
     b = 0 # friends and don't share rating
     c = 0 # not friends and share rating
