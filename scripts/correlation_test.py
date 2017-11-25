@@ -74,7 +74,7 @@ def read_restaurant_by_user_ratings():
     '''
     Reads user ratings grouped by restaurants
     '''
-    with open('../data/restaurants') as restaurant_f:
+    with open('../data/equalRatingNoNullRestaurants.txt') as restaurant_f:
         user_ratings_map = json.load(restaurant_f)
         return user_ratings_map
 
