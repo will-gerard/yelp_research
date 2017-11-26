@@ -26,7 +26,7 @@ from itertools import combinations
 import sys
 import copy
 
-RAND_NUM = 10
+RAND_NUM = 250
 
 def main():
     rest_user_ratings_map = read_restaurant_by_user_ratings()
@@ -48,7 +48,7 @@ def main():
         combinations = get_user_combos_from_ratings_map(user_ratings_dict)
         # generate random chisq values first:
         chisq_vals = gen_random_chisq_vals(user_ratings_dict, friend_graph, combinations)
-        print("calculated " + str(counter) + " of " + str(num_restaurants))
+        #print("calculated " + str(counter) + " of " + str(num_restaurants))
         counter += 1
         random_chisq_values.append(chisq_vals)
 
@@ -59,7 +59,8 @@ def main():
     sum_rand_chisq = [sum(i) for i in zip(*random_chisq_values)]
     sum_rand_chisq.sort()
 
-    print(sum_rand_chisq)
+    for num in sum_rand_chisq:
+        print(str(num))
     print(real_chisq_sum)
     # calculate what percentile the real sum is in compared to the distribution of random
     percentile = 1
