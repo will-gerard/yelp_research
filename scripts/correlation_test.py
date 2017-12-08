@@ -26,7 +26,7 @@ from itertools import combinations
 import sys
 import copy
 
-RAND_NUM = 250
+RAND_NUM = int(sys.argv[1])
 
 def main():
     rest_user_ratings_map = read_restaurant_by_user_ratings()
@@ -108,8 +108,8 @@ def gen_random_chisq_vals(ratings_map, graph, combinations):
     command line argument to randomize scores or graph edges. Defaults to score if
     no argument is supplied
     '''
-    if len(sys.argv) > 1:
-        rand_type = sys.argv[1]
+    if len(sys.argv) > 2:
+        rand_type = sys.argv[2]
     else:
         rand_type = 'score'
 
