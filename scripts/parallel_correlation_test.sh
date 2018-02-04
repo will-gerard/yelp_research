@@ -1,5 +1,5 @@
 start=`date +%s`
-instanceNum=2
+instanceNum=2 # the number of randomizations you want to run for EACH instance
 python3 correlation_test.py $instanceNum score | head -$instanceNum > score_1.txt &
 python3 correlation_test.py $instanceNum score | head -$instanceNum > score_2.txt &
 python3 correlation_test.py $instanceNum score | head -$instanceNum > score_3.txt &

@@ -13,7 +13,9 @@ This is repeated RAND_NUM times on randomized data to create a distribution,
 and then the percentile of the actual chi square statistic for the real data set
 is determined based on the randomized data to determine significance.
 
-Argument 1: 'score' or 'edge' to determine if scores should be randomized or
+Argument 1: RAND_NUM 
+
+Argument 2: 'score' or 'edge' to determine if scores should be randomized or
     edges in the friend graph
 '''
 
