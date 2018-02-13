@@ -22,7 +22,7 @@ from init_friend_graph import init_friend_graph
 import pickle
 
 restaurants = {}
-threshold = 0.5
+threshold = 0.75
 
 def main():
 	print("Initializing Friend Graph...")
@@ -99,17 +99,15 @@ def generate_cosine_similarity_matrix():
 		corpus = []
 		#dictionary of user -> index of corresponding row in matrix
 		users = {}
-		row = 0
 
 		#first filter the list of reviews to remove duplicates from the same user
 		reviews = remove_dups(r)
 
-		for review_tuple in reviews:
+		for i, review_tuple in enumerate(reviews):
 			#add the text of the review as a new document in the corpus
 			corpus.append(review_tuple[1])
 			#and add (this user_id -> current row in matrix) to the user dictionary 
-			users[review_tuple[0]] = row
-			row+=1
+			users[review_tuple[0]] = i
 
 		#add the user indices to the restaurant dictionary value
 		dict_entry['users'] = users
@@ -120,17 +118,17 @@ def generate_cosine_similarity_matrix():
 		#this will be a 2D array representing the matrix of cosine similarity values
 		cos_similarity_matrix = np.empty((num_rows, num_rows))
 		#for each row, get the corresponding array of cosine similarity values
-		for i in range(0, num_rows):
-			cos_values_array = cosine_similarity(tfidf_matrix.getrow(i), tfidf_matrix)
-			#we don't care about the actual values, we just need 1 (similar) or 0 (not similar)
-			for x in range(0, cos_values_array.size):
-				if cos_values_array[0,x] >= threshold:
-					cos_values_array[0,x] = 1
-				else:
-					cos_values_array[0,x] = 0
+		# for i in range(0, num_rows):
+		# 	cos_values_array = cosine_similarity(tfidf_matrix.getrow(i), tfidf_matrix)
+		# 	#we don't care about the actual values, we just need 1 (similar) or 0 (not similar)
+		# 	for x in range(0, cos_values_array.size):
+		# 		if cos_values_array[0,x] >= threshold:
+		# 			cos_values_array[0,x] = 1
+		# 		else:
+		# 			cos_values_array[0,x] = 0
 
-			#add the row to the cosine similarity matrix
-			cos_similarity_matrix[i] = cos_values_array
+		# 	#add the row to the cosine similarity matrix
+		# 	cos_similarity_matrix[i] = cos_values_array
 
 		#add the cosine similarity matrix to the restaurant dictionary value
 		dict_entry['cos_matrix'] = cos_similarity_matrix
