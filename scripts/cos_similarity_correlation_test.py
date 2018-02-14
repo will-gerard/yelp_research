@@ -20,8 +20,8 @@ Argument 2: 'score' or 'edge' to determine if reviews should be randomized or
     edges in the friend graph
 '''
 
-from correlation_test import remove_dups_to_dict, get_user_combos_from_ratings_map,
-    get_random_score_ratings, get_random_edge_graphs
+from correlation_test import (remove_dups_to_dict, get_user_combos_from_ratings_map,
+    get_random_score_ratings, get_random_edge_graphs, get_edge_set)
 from init_friend_graph import init_friend_graph
 from itertools import combinations
 import pickle
@@ -30,12 +30,11 @@ from random import shuffle
 import sys
 
 RAND_NUM = int(sys.argv[1])
-SIMILARITY_THRESHOLD = 0.75 # when comparing two reviews, the reviews are similar if
-    # the cosine similarity is > SIMILARITY_THRESHOLD, else they're not
+
 
 def main():
-    rest_user_ratings_map = read_restaurant_by_user_ratings()
-    num_restaurants = len(rest_user_ratings_map)
+    rest_user_reviews_map = read_restaurant_by_user_reviews()
+    num_restaurants = len(rest_user_reviews_map)
     friend_graph = init_friend_graph('../data/yelpFriends.txt')
 
     # A list of lists, where each list corresponds to a restaurant subgraph
@@ -47,8 +46,8 @@ def main():
 
     counter = 0
 
-    for r_id in rest_user_ratings_map:
-        user_reviews = rest_user_ratings_map[r_id]
+    for r_id in rest_user_reviews_map:
+        user_reviews = rest_user_reviews_map[r_id]
         combinations = get_user_combos_from_ratings_map(user_reviews['users'])
         # generate random chisq values first:
         chisq_vals = gen_random_chisq_vals(user_reviews, friend_graph, combinations)
@@ -57,14 +56,29 @@ def main():
         random_chisq_values.append(chisq_vals)
 
         # calculate chisq value for actual graph
-        real_chisq_sum += calc_chi_sq(user_reviews, friend_graph, combinations)
+        real_chisq_sum += calc_chi_sq(user_reviews['users'], user_reviews['cos_matrix'], friend_graph, combinations)
+
+    # list of chisq sums for RAND_NUM trials
+    sum_rand_chisq = [sum(i) for i in zip(*random_chisq_values)]
+    sum_rand_chisq.sort()
+
+    for num in sum_rand_chisq:
+        print(str(num))
+    print(real_chisq_sum)
+    # calculate what percentile the real sum is in compared to the distribution of random
+    percentile = 1
+    for i in range(len(sum_rand_chisq)):
+        if sum_rand_chisq[i] > real_chisq_sum:
+            percentile = i/len(sum_rand_chisq)
+            break
+    print("Percentile: " + str(percentile))
 
 
 def read_restaurant_by_user_reviews():
     '''
     Reads user ratings grouped by restaurants
     '''
-    with open('../data/cosSimilarityNoNullRestaurants.pkl') as restaurant_f:
+    with open('../data/cosSimilarityNoNullRestaurants.pkl', 'rb') as restaurant_f:
         user_reviews_map = pickle.load(restaurant_f)
         return user_reviews_map
 
@@ -115,12 +129,12 @@ def calc_chi_sq(reviews_map, cos_matrix, graph, user_pairs):
         user1_index = reviews_map[user1]
         user2_index = reviews_map[user2]
         if user1 not in graph or user2 not in graph[user1]:
-            if cos_matrix[user1_index][user2_index] >= SIMILARITY_THRESHOLD:
+            if cos_matrix[user1_index][user2_index]:
                 c += 1
             else:
                 d += 1
         else:
-            if cos_matrix[user1_index][user2_index] >= SIMILARITY_THRESHOLD:
+            if cos_matrix[user1_index][user2_index]:
                 a += 1
             else:
                 b += 1
