@@ -2,7 +2,7 @@
 
 '''
 Script to parse through all yelp users and create a mapping
-from restaurant_id => [cosine similarity matrix, userid -> index into matrix dictionary] 
+from restaurant_id => [cosine similarity matrix, userid -> index into matrix dictionary]
 Writes to 'restaurants_cosine_similarity.json' file as json
 '''
 
@@ -29,7 +29,7 @@ def main():
 	friend_graph = init_friend_graph('../data/yelpFriends.txt')
 
 	user_data_directory = os.getcwd() + "/../data/yelp_users/"
-	
+
 	print("Reading reviews from each user...")
 	for user in os.listdir(user_data_directory):
 		filename = os.getcwd() + "/../data/yelp_users/" + user
@@ -106,7 +106,7 @@ def generate_cosine_similarity_matrix():
 		for i, review_tuple in enumerate(reviews):
 			#add the text of the review as a new document in the corpus
 			corpus.append(review_tuple[1])
-			#and add (this user_id -> current row in matrix) to the user dictionary 
+			#and add (this user_id -> current row in matrix) to the user dictionary
 			users[review_tuple[0]] = i
 
 		#add the user indices to the restaurant dictionary value
@@ -118,17 +118,17 @@ def generate_cosine_similarity_matrix():
 		#this will be a 2D array representing the matrix of cosine similarity values
 		cos_similarity_matrix = np.empty((num_rows, num_rows))
 		#for each row, get the corresponding array of cosine similarity values
-		# for i in range(0, num_rows):
-		# 	cos_values_array = cosine_similarity(tfidf_matrix.getrow(i), tfidf_matrix)
-		# 	#we don't care about the actual values, we just need 1 (similar) or 0 (not similar)
-		# 	for x in range(0, cos_values_array.size):
-		# 		if cos_values_array[0,x] >= threshold:
-		# 			cos_values_array[0,x] = 1
-		# 		else:
-		# 			cos_values_array[0,x] = 0
+		for i in range(0, num_rows):
+			cos_values_array = cosine_similarity(tfidf_matrix.getrow(i), tfidf_matrix)
+			#we don't care about the actual values, we just need 1 (similar) or 0 (not similar)
+			for x in range(0, cos_values_array.size):
+				if cos_values_array[0,x] >= threshold:
+					cos_values_array[0,x] = 1
+				else:
+					cos_values_array[0,x] = 0
 
-		# 	#add the row to the cosine similarity matrix
-		# 	cos_similarity_matrix[i] = cos_values_array
+			#add the row to the cosine similarity matrix
+			cos_similarity_matrix[i] = cos_values_array
 
 		#add the cosine similarity matrix to the restaurant dictionary value
 		dict_entry['cos_matrix'] = cos_similarity_matrix
@@ -153,9 +153,6 @@ def is_chi_square_null(restaurant_dictionary, graph):
 	Takes a mapping from user_id => ratings and adjacency list graph. Checks if
 	there are exp values of 0.
 	'''
-
-	global threshold
-
 	cos_similarity_matrix = restaurant_dictionary['cos_matrix']
 	user_to_index = restaurant_dictionary['users']
 
@@ -169,12 +166,12 @@ def is_chi_square_null(restaurant_dictionary, graph):
 		user1_index = user_to_index[user1]
 		user2_index = user_to_index[user2]
 		if user1 not in graph or user2 not in graph[user1]:
-			if cos_similarity_matrix[user1_index][user2_index] >= threshold:
+			if cos_similarity_matrix[user1_index][user2_index] == 1:
 				c += 1
 			else:
 				d += 1
 		else:
-			if cos_similarity_matrix[user1_index][user2_index] >= threshold:
+			if cos_similarity_matrix[user1_index][user2_index] == 1:
 				a += 1
 			else:
 				b += 1
@@ -182,8 +179,8 @@ def is_chi_square_null(restaurant_dictionary, graph):
 	if denom == 0:
 		return True
 	else:
-		return False 
-	
+		return False
+
 
 if __name__ == "__main__":
 	main()
