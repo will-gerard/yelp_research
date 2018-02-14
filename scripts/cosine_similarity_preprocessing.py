@@ -22,7 +22,7 @@ from init_friend_graph import init_friend_graph
 import pickle
 
 restaurants = {}
-threshold = 0.75
+threshold = 0.3
 
 def main():
 	print("Initializing Friend Graph...")
@@ -120,12 +120,12 @@ def generate_cosine_similarity_matrix():
 		#for each row, get the corresponding array of cosine similarity values
 		for i in range(0, num_rows):
 			cos_values_array = cosine_similarity(tfidf_matrix.getrow(i), tfidf_matrix)
-			#we don't care about the actual values, we just need 1 (similar) or 0 (not similar)
+			#we don't care about the actual values, we just need True (similar) or False (not similar)
 			for x in range(0, cos_values_array.size):
 				if cos_values_array[0,x] >= threshold:
-					cos_values_array[0,x] = 1
+					cos_values_array[0,x] = True
 				else:
-					cos_values_array[0,x] = 0
+					cos_values_array[0,x] = False
 
 			#add the row to the cosine similarity matrix
 			cos_similarity_matrix[i] = cos_values_array
@@ -153,6 +153,7 @@ def is_chi_square_null(restaurant_dictionary, graph):
 	Takes a mapping from user_id => ratings and adjacency list graph. Checks if
 	there are exp values of 0.
 	'''
+	global threshold
 	cos_similarity_matrix = restaurant_dictionary['cos_matrix']
 	user_to_index = restaurant_dictionary['users']
 
@@ -166,12 +167,12 @@ def is_chi_square_null(restaurant_dictionary, graph):
 		user1_index = user_to_index[user1]
 		user2_index = user_to_index[user2]
 		if user1 not in graph or user2 not in graph[user1]:
-			if cos_similarity_matrix[user1_index][user2_index] == 1:
+			if cos_similarity_matrix[user1_index][user2_index]:
 				c += 1
 			else:
 				d += 1
 		else:
-			if cos_similarity_matrix[user1_index][user2_index] == 1:
+			if cos_similarity_matrix[user1_index][user2_index]:
 				a += 1
 			else:
 				b += 1
