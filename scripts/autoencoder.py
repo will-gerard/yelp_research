@@ -7,6 +7,68 @@ import torch.optim as optim
 N = 10 # number of vectors in the data set, i.e. |V|+|W|
 D = 3 # number of dimensions in the encoded vectors
 
+class L1EmbeddingLoss(nn.Module):
+	def __init__(self, friend_sim_matrix):
+		super(L1EmbeddingLoss, self).__init__()
+		self.friend_sim_matrix = friend_sim_matrix
+
+
+	def cross_difference(inputs):
+		'''
+		Given a list of 1D tensors (2D tensor batch), does the pair wise combination
+		of each 1D tensor and finds their difference. Outputs a 2D tensor of differences.
+		inputs is a 2D tensor batch where each row is a 1D tensor for the cross difference
+		'''
+		n = inputs.size()[0]
+		res = tensor.zeros(n,n)
+		for i in range(n):
+			for j in range(n):
+				res[i][j] = F.cosine_similarity(inputs[i], inputs[j])
+		return res
+
+
+	def forward(self, inputs):
+		'''
+		Takes the input and performs a cartesian product with itself to compute
+		loss on pairs of the input based on the similarity matrix
+		'''
+		diffs = cross_difference(inputs)
+		return torch.sum((self.friend_sim_matrix - diffs)**2)
+
+
+
+class WordEmbeddingLoss(nn.Module):
+	def __init__(self, word_sim_matrix):
+		super(WordEmbeddingLoss, self).__init__()
+		self.word_sim_matrix = word_sim_matrix
+
+
+	def cross_difference(users, words):
+		'''
+		users - 2D tensor of dimension V x P
+		words - 2D tensor of dimension W x P
+		Computes the cosine similarity of each pairwise combination of users and word 1D tensors
+		Returns a resulting matrix of dimension V x W
+		'''
+		v = users.size()[0]
+		w = words.size()[0]
+		res = np.zeros(v, w)
+		for i in range(v):
+			for j in range(w):
+				res[i][j] = F.cosine_similarity(users[i], words[j])
+		return res
+
+
+	def forward(self, users, words):
+		'''
+		Takes users and words, computes cosine similarity between them and compares them to
+		word-user similarity matrix to compute the loss
+		'''
+		cross_diffs = cross_difference(users, words)
+		return torch.sum((self.word_sim_matrix - cross_diffs)**2)
+
+
+
 class DeepAutoencoder(nn.Module):
 	def __init__(self):
 		super(DeepAutoencoder, self).__init__()
