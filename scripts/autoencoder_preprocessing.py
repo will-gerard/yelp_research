@@ -2,8 +2,8 @@
 
 '''
 Store the two similarity matrices necessary for the graph embedding:
-1. Friend adjacency matrix V x V
-2. User-word usage V x W
+1. Friend adjacency matrix V x V (boolean)
+2. User-word usage V x W (sparse int)
 '''
 from collections import OrderedDict
 from init_friend_graph import init_friend_graph
@@ -14,7 +14,6 @@ import os
 import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import torch
 
 restaurants = {}
 
@@ -24,14 +23,14 @@ def main():
 	index_to_user = list(friend_graph.keys())
 	user_to_index = {k: v for v, k in enumerate(index_to_user)}
 	V = len(index_to_user)
-	friend_matrix = torch.zeros(V,V)
+	friend_matrix = np.full((V,V), False)
 	for user1, friend_list in friend_graph.items():
 		for user2 in friend_list:
 			idx1 = user_to_index.get(user1)
 			idx2 = user_to_index.get(user2)
 			if (idx1 is not None and idx2 is not None):
-				friend_matrix[idx1, idx2] = 1
-				friend_matrix[idx2, idx2] = 1
+				friend_matrix[idx1, idx2] = True
+				friend_matrix[idx2, idx2] = True
 
 
 	user_data_directory = os.getcwd() + "/../data/yelp_users/"
@@ -48,9 +47,8 @@ def main():
 		'friend_matrix': friend_matrix,
 		'user_word_matrix': user_word_matrix,
 	}
-
 	print("Generating pickle object...")
-	pickle_object = open("autoencoder_sim_matrices.pkl", "wb")
+	pickle_object = open("../data/autoencoder_sim_matrices.pkl", "wb")
 	pickle.dump(result, pickle_object)
 	pickle_object.close()
 
