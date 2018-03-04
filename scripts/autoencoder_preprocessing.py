@@ -4,6 +4,14 @@
 Store the two similarity matrices necessary for the graph embedding:
 1. Friend adjacency matrix V x V (boolean)
 2. User-word usage V x W (sparse int)
+
+Pickles a dict object:
+result = {
+	'user_labels': index_to_user,
+	'word_labels': word_labels,
+	'friend_matrix': friend_matrix,
+	'user_word_matrix': user_word_matrix,
+}
 '''
 from collections import OrderedDict
 from init_friend_graph import init_friend_graph

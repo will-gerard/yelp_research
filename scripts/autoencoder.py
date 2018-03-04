@@ -1,3 +1,5 @@
+import pickle
+from scipy import spatial
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -15,19 +17,21 @@ class SimMatrixEmbeddingLoss(nn.Module):
 		self.sim_matrix = sim_matrix
 
 
-	def cross_difference(input1, input2):
+	def cross_difference(self, input1, input2):
 		'''
-		users - 2D tensor of dimension V x P
-		words - 2D tensor of dimension W x P
+		input1 - 2D tensor of dimension U x P
+		input2 - 2D tensor of dimension V x P
 		Computes the cosine similarity of each pairwise combination of users and word 1D tensors
 		Returns a resulting matrix of dimension V x W
 		'''
 		u = input1.size()[0]
 		v = input2.size()[0]
-		res = np.zeros(u, v)
+		res = Variable(torch.Tensor(u, v))
 		for i in range(u):
 			for j in range(v):
-				res[i][j] = F.cosine_similarity(input1[i], input2[j])
+				vec1 = torch.unsqueeze(input1[i,:], 0)
+				vec2 = torch.unsqueeze(input2[j,:], 0)
+				res[i][j] = F.cosine_similarity(vec1, vec2)
 		return res
 
 
@@ -36,8 +40,8 @@ class SimMatrixEmbeddingLoss(nn.Module):
 		Takes users and words, computes cosine similarity between them and compares them to
 		word-user similarity matrix to compute the loss
 		'''
-		cross_diffs = cross_difference(input1, input2)
-		return torch.sum((self.sim_matrix - cross_diffs)**2)
+		cross_diffs = self.cross_difference(input1, input2)
+		return torch.sum((int(self.sim_matrix) - cross_diffs)**2)
 
 
 class DeepAutoencoder(nn.Module):
@@ -66,31 +70,40 @@ class DeepAutoencoder(nn.Module):
 		#x_pred = self.decoder(x)
 		return y
 
+#initialize the data
+print("Loading similarity matrix data")
+with open('../data/autoencoder_sim_matrices.pkl', 'rb') as matrix_f:
+	matrix_data = pickle.load(matrix_f)
+
+user_word_matrix = matrix_data['user_word_matrix']
+friend_matrix = matrix_data['friend_matrix']
+user_num = friend_matrix.shape[0]
+word_num = user_word_matrix.shape[1]
 
 # random Tensors to hold inputs
-X_user = Variable(torch.randn(N, D_in))
-X_word = Variable(torch.randn(N, D_in))
+print("Initializing input vectors")
+X_user = Variable(torch.sparse.torch.eye(user_num))
+X_word = Variable(torch.sparse.torch.eye(word_num))
+
 
 # We will keep track of the loss at each iteration
 losses = []
 
 # Initialize the model and the optimizer
-#TODO feed in word dimensions
-#TODO feed in user dimensions
+print("Initializing models and loss functions")
 model_user = DeepAutoencoder(user_num, H1_DIM, H2_DIM, D_OUT)
 model_word = DeepAutoencoder(word_num, H1_DIM, H2_DIM, D_OUT)
-model_parameters = [model_word, model_user]
+model_parameters = list(model_word.parameters()) +  list(model_user.parameters())
 
 #Adam outperforms stochastic gradient descent
 optimizer = optim.Adam(model_parameters, lr=0.001)
 
 # Construct our loss functions:
-#TODO friend matrix??
-#TODO user_word_matrix??
 friend_criterion = SimMatrixEmbeddingLoss(friend_matrix)
 word_criterion = SimMatrixEmbeddingLoss(user_word_matrix)
 
-for epoch in range(100):
+print("Begin training...")
+for epoch in range(2):
 	total_loss = 0
 	y_user_pred = model_user(X_user)
 	y_word_pred = model_word(X_word)
