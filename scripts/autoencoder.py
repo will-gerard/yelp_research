@@ -17,31 +17,17 @@ class SimMatrixEmbeddingLoss(nn.Module):
 		self.sim_matrix = sim_matrix
 
 
-	def cross_difference(self, input1, input2):
-		'''
-		input1 - 2D tensor of dimension U x P
-		input2 - 2D tensor of dimension V x P
-		Computes the cosine similarity of each pairwise combination of users and word 1D tensors
-		Returns a resulting matrix of dimension V x W
-		'''
-		u = input1.size()[0]
-		v = input2.size()[0]
-		res = Variable(torch.Tensor(u, v))
-		for i in range(u):
-			for j in range(v):
-				vec1 = torch.unsqueeze(input1[i,:], 0)
-				vec2 = torch.unsqueeze(input2[j,:], 0)
-				res[i][j] = F.cosine_similarity(vec1, vec2)
-		return res
-
-
 	def forward(self, input1, input2):
 		'''
 		Takes users and words, computes cosine similarity between them and compares them to
 		word-user similarity matrix to compute the loss
 		'''
-		cross_diffs = self.cross_difference(input1, input2)
-		return torch.sum((int(self.sim_matrix) - cross_diffs)**2)
+		input2_t = torch.t(input2)
+		dot_product = torch.mm(input1,input2_t)
+		u_norm = torch.norm(input1, 2, 1, True)
+		v_norm = torch.norm(input2, 2, 1, True)
+		cross_diffs = dot_product /u_norm / torch.t(v_norm)
+		return torch.sum((self.sim_matrix - cross_diffs)**2)
 
 
 class DeepAutoencoder(nn.Module):
