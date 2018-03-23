@@ -1,4 +1,5 @@
 import random
+import math
 
 def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	'''
@@ -20,11 +21,11 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 
 	#get the number of elements in the testing set:
 	num_edges = len(full_edge_set)
-	L_train = training_percentage * num_edges
+	L_train = math.ceil(training_percentage * num_edges)
 	L_test = num_edges - L_train
 
 	#TODO: make this number a parameter
-	num_nodes = 10674
+	num_nodes = 34
 
 	#generate L random nonexistent links
 	E_fake = []
@@ -40,18 +41,46 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 		if edge1 not in full_edge_set and edge2 not in full_edge_set:
 			#order of nodes shouldn't matter since similarity matrix will be symmetrical
 			E_fake.append(edge1)
-			count++
+			count+=1
 
 	#select L random edges to remove
 	#get the full list of the edges, we will remove some to create the testing list
-	E_train = list(full_edge_set)
+	full_edge_list = list(full_edge_set)
+	E_train = []
 	E_test = []
 	#randomly select the edges to remove
 	#TODO: check to make sure removing these edges leaves the graph connected
-	indexes_to_remove = random.sample(range(1, len(full_edge_list)), L_test)
+	x = len(full_edge_list)
+	indexes_to_remove = random.sample(range(1, x), L_test)
 	for i in indexes_to_remove:
-		edge = E_train.pop(i)
+		edge = full_edge_list[i]
 		E_test.append(edge)
+
+		full_edge_list[i] = None
+
+	for edge in full_edge_list:
+		if edge is not None:
+			E_train.append(edge)
 
 	#the remaining edges make up the training set
 	return (E_train, E_test, E_fake)
+
+def main():
+	lists = separate_edge_lists('graph/yelp_graph.edgelist')
+	E_train = lists[0]
+	E_test = lists[1]
+	E_fake = lists[2]
+	with open('edgelists/training.edgelist', 'w') as train_file:
+		for edge in E_train:
+			train_file.write(str(edge[0]) + " " + str(edge[1]) + "\n")
+
+	with open('edgelists/removed.edgelist', 'w') as removed_file:
+		for edge in E_test:
+			removed_file.write(str(edge[0]) + " " + str(edge[1]) + "\n")
+
+	with open('edgelists/missing.edgelist', 'w') as missing_file:
+		for edge in E_fake:
+			missing_file.write(str(edge[0]) + " " + str(edge[1]) + "\n")
+
+if __name__ == '__main__':
+	main()

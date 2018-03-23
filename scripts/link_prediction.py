@@ -1,5 +1,6 @@
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import lil_matrix
 
 import numpy as np
 
@@ -41,21 +42,26 @@ def generate_similarity_matrix(path_to_embeddings):
 		num_nodes, num_dimensions = [int(x) for x in next(fp).split()]
 
 		#we need to store the node embeddings in order in the matrix
-		size = (num_nodes, num_dimensions)
-		node_embeddings_matrix = np.empty((size))
+		size = (10830, num_dimensions)
+		#node_embeddings_matrix = np.empty((size))
+		node_embeddings_matrix = lil_matrix(size)
 
 		#update the rows in the embeddings matrix with the appropriate values
 		for line in fp:
-			nums = [int(x) for x in line.split()]
-			node_index = nums[0]
-			embedded_vector = nums[1:]
-			node_embeddings_matrix[node_index] = embedded_vector
+			nums = [float(x) for x in line.split()]
+			node_index = int(nums[0]) #- 1 if there is no node 0 (like in the karate graph)
+			#This check is necessary become currently during the removal of edges some nodes are completely lost,
+			#so the number of nodes embedded is lower than the total number of nodes in the original graph
+			if node_index < num_nodes:
+				embedded_vector = nums[1:]
+				node_embeddings_matrix[node_index] = embedded_vector
+				#print("row")
 
 	#now time to initialize similarity matrix S to a matrix of the appropriate size, filled with zeros
-	size = (num_nodes, num_nodes)
+	size = (10830, 10830)
 	S = np.zeros(size)
 
-	for i in range(0, num_nodes):
+	for i in range(0, 10830):
 		#get the values returned combining the current row with each of the other rows in the matrix
 		cos_values_array = cosine_similarity(node_embeddings_matrix.getrow(i), node_embeddings_matrix)
 		#store these values as the current row in the similarity matrix
@@ -78,6 +84,7 @@ def get_edge_scores(S, E_test, E_fake):
 		e = E_test[i]
 		node1 = e[0]
 		node2 = e[1]
+		#need to subtract one if there is no node 0
 		score = S[node1][node2]
 		y_scores.append(score)
 
@@ -85,6 +92,7 @@ def get_edge_scores(S, E_test, E_fake):
 		e = E_fake[i]
 		node1 = e[0]
 		node2 = e[1]
+		#need to subtract one if there is no node 0
 		score = S[node1][node2]
 		y_scores.append(score)
 
@@ -92,15 +100,18 @@ def get_edge_scores(S, E_test, E_fake):
 
 
 def main():
-	#step 1 (completed before this file is reached): generate edge lists
-	E_test = read_edge_array('edgelists/testing.edgelist')
-	E_fake = read_edge_array('edgelists/fake.edgelist')
+	#step 1: generate edge lists
+	print("READING EDGE LISTS...")
+	E_test = read_edge_array('edgelists/removed.edgelist')
+	E_fake = read_edge_array('edgelists/missing.edgelist')
 	#step 2 (completed before this file is reached): embed nodes based on E_train
 
 	#step 3: create similarity matrix from the embedded node vectors
+	print("GENERATING SIMILARITY MATRIX...")
 	S = generate_similarity_matrix('emb/test_embedding.emd')
 
 	#step 4: create arrays to feed into the AUC score computation
+	print("COMPUTING AREA UNDER RECIEVER OPERATING CHARACTERISTIC CURVE...")
 	y_true = []
 	#Each of the edges in E_test was an actual edge removed, so the true value is 1
 	for i in range(len(E_test)):
