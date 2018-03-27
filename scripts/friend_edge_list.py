@@ -13,30 +13,44 @@ restaurants = {}
 
 
 def readUserReviews(filename):
-	'''
-	Takes in f, a file handle
-	Reads 5 lines at a time. Line 0 is the restaurant id,
-	line 1 is the content of the review.
-	Updates restaurant dict. to contain rest_id -> (user_id, review)
-	'''
-	global restaurants
-	with open(filename, 'r') as f:
-		#the first line in the file is the user id, don't include it in the sets of 5 lines
-		user_id = f.readline().strip()
-		while True:
-			lines = list(islice(f, 5))
-			if not lines:
-				# EOF reached
-				break
-			restaurant_id = lines[0].strip()
-			review = lines[1].strip()
-			if restaurant_id in restaurants:
-				restaurant_list = restaurants[restaurant_id]
-				restaurant_list.append((user_id, review))
-				restaurants[restaurant_id] = restaurant_list
-			else:
-				restaurants[restaurant_id] = [(user_id, review)]
+    '''
+    Takes in f, a file handle
+    Reads 5 lines at a time. Line 0 is the restaurant id,
+    line 1 is the content of the review.
+    Updates restaurant dict. to contain rest_id -> (user_id, review)
+    '''
+    global restaurants
+    with open(filename, 'r') as f:
+        #the first line in the file is the user id, don't include it in the sets of 5 lines
+        user_id = f.readline().strip()
+        while True:
+            lines = list(islice(f, 5))
+            if not lines:
+                # EOF reached
+                break
+            restaurant_id = lines[0].strip()
+            review = lines[1].strip()
+            if restaurant_id in restaurants:
+                restaurant_list = restaurants[restaurant_id]
+                restaurant_list.append((user_id, review))
+                restaurants[restaurant_id] = restaurant_list
+            else:
+                restaurants[restaurant_id] = [(user_id, review)]
 
+def filter_disconnected_nodes(friend_graph):
+    '''
+    Takes in a adjacency list. 'Main users' are the keys of the friend graph.
+    Filters out main users whose friends are all NOT main users
+    @param friend_graph: {user_id: [user_id, ...]}
+
+    @return filtered_graph: {user_id: [user_id, ...]}
+    '''
+    filtered_friends = {}
+    for main_user, friend_list in friend_graph.items():
+        num_main_friends = len([x for x in friend_list if x in friend_graph])
+        if num_main_friends != 0:
+            filtered_friends[main_user] = friend_list
+    return filtered_friends
 
 
 def friend_edge_list(friend_graph):
@@ -50,7 +64,7 @@ def friend_edge_list(friend_graph):
 
     @return (edge list tuples, dictionary of user_id to index, list of user_ids)
     '''
-    friend_graph = init_friend_graph('../data/yelpFriends.txt')
+    friend_graph = filter_disconnected_nodes(friend_graph)
     index_to_user = list(friend_graph.keys())
     user_to_index = {k: v for v, k in enumerate(index_to_user)}
     edges = set()
@@ -58,54 +72,51 @@ def friend_edge_list(friend_graph):
         for user2 in friend_list:
             idx1 = user_to_index.get(user1)
             idx2 = user_to_index.get(user2)
-            if idx2 is None:
-                index_to_user.append(user2)
-                idx2 = len(index_to_user) - 1
-                user_to_index[user2] = idx2
-            edges.add(tuple(sorted([idx1, idx2])))
+            if (idx1 is not None and idx2 is not None):
+                edges.add(tuple(sorted([idx1, idx2])))
     edges = sorted(edges)
     return (edges, user_to_index, index_to_user)
 
 
 def generate_user_word_matrix(index_to_user):
-	'''
-	Takes a list mapping index in table to user_id
-	Returns tuple of (word feature labels, user-word binary sim matrix)
-	'''
-	tfidf_vectorizer = TfidfVectorizer()
-	user_reviews = {} # dict of user => concatenation of all his reviews
+    '''
+    Takes a list mapping index in table to user_id
+    Returns tuple of (word feature labels, user-word binary sim matrix)
+    '''
+    tfidf_vectorizer = TfidfVectorizer()
+    user_reviews = {} # dict of user => concatenation of all his reviews
 
-	# concatenate each user's reviews together into user_reviews
-	for rest_id, r in restaurants.items():
-		#first filter the list of reviews to remove duplicates from the same user
-		reviews = remove_dups(r)
+    # concatenate each user's reviews together into user_reviews
+    for rest_id, r in restaurants.items():
+        #first filter the list of reviews to remove duplicates from the same user
+        reviews = remove_dups(r)
 
-		for i, review_tuple in enumerate(reviews):
-			# insert/concatenate user review into dict
-			if review_tuple[0] in user_reviews:
-				user_reviews[review_tuple[0]] += " " + review_tuple[1]
-			else:
-				user_reviews[review_tuple[0]] = review_tuple[1]
+        for i, review_tuple in enumerate(reviews):
+            # insert/concatenate user review into dict
+            if review_tuple[0] in user_reviews:
+                user_reviews[review_tuple[0]] += " " + review_tuple[1]
+            else:
+                user_reviews[review_tuple[0]] = review_tuple[1]
 
-	# add each user's reviews into the corpus so that the order of the reviews
-	# is the same as the order of users
-	corpus = [user_reviews[user] for user in index_to_user]
+    # add each user's reviews into the corpus so that the order of the reviews
+    # is the same as the order of users
+    corpus = [user_reviews[user] for user in index_to_user]
 
 
-	tfidf_matrix = tfidf_vectorizer.fit_transform(corpus)
-	tfidf_matrix[tfidf_matrix > 0] = 1 ###### If we only care about presence/absence of words
+    tfidf_matrix = tfidf_vectorizer.fit_transform(corpus)
+    tfidf_matrix[tfidf_matrix > 0] = 1 ###### If we only care about presence/absence of words
 
-	return (tfidf_vectorizer.get_feature_names(), tfidf_matrix)
+    return (tfidf_vectorizer.get_feature_names(), tfidf_matrix)
 
 
 def remove_dups(user_ratings):
-	'''
-	Resolves multiple reviews from the same user. Only keeps the last review score
-	found from the user. Takes in a list of tuples (user_id, rating) and returns a
-	modified list of tuples.
-	'''
-	d = OrderedDict(user_ratings)
-	return list(d.items())
+    '''
+    Resolves multiple reviews from the same user. Only keeps the last review score
+    found from the user. Takes in a list of tuples (user_id, rating) and returns a
+    modified list of tuples.
+    '''
+    d = OrderedDict(user_ratings)
+    return list(d.items())
 
 
 def word_user_edge_list(word_labels, user_word_matrix):
@@ -132,14 +143,25 @@ def word_user_edge_list(word_labels, user_word_matrix):
 
 
 def main():
+    print("Initializing friend graph...")
     friend_graph = init_friend_graph('../data/yelpFriends.txt')
     friend_edges, user_to_index, index_to_user = friend_edge_list(friend_graph)
+
+    # iterate through users and read in reviews
+    user_data_directory = os.getcwd() + "/../data/yelp_users/"
+    print("Reading reviews from each user...")
+    for user in os.listdir(user_data_directory):
+        filename = os.getcwd() + "/../data/yelp_users/" + user
+        readUserReviews(filename)
+
+    print("Generating word matrix...")
     word_labels, user_word_matrix = generate_user_word_matrix(index_to_user)
     users_size = len(user_to_index)
     friend_edges_size = len(friend_edges)
 
     word_edges, word_to_index = word_user_edge_list(word_labels, user_word_matrix)
 
+    print("Writing edge lists...")
     # write the friend list
     with open('../data/friend_edge_list.txt', 'w') as f:
         f.write(str(users_size) + " " + str(friend_edges_size) + "\n")
