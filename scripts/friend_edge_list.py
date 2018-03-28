@@ -5,12 +5,16 @@ Writes an edge text file for use with the GEM implementation of SDNE or node2vec
 from collections import OrderedDict
 from init_friend_graph import init_friend_graph
 from itertools import islice
+import nltk
+from nltk.stem.porter import PorterStemmer
 import numpy as np
 import os
+import re
 from sklearn.feature_extraction.text import TfidfVectorizer
+import string
 
 restaurants = {}
-
+stemmer = PorterStemmer()
 
 def readUserReviews(filename):
     '''
@@ -78,12 +82,27 @@ def friend_edge_list(friend_graph):
     return (edges, user_to_index, index_to_user)
 
 
+def stem_tokens(tokens, stemmer):
+    stemmed = []
+    for item in tokens:
+        stemmed.append(stemmer.stem(item))
+    return stemmed
+
+
+def tokenize(text):
+    text.translate(str.maketrans('','',string.punctuation))
+    tokens = nltk.tokenize.casual_tokenize(text, preserve_case=False, reduce_len=True)
+    tokens = [re.sub('\d+', 'NUM', s) for s in tokens]
+    stems = stem_tokens(tokens, stemmer)
+    return stems
+
+
 def generate_user_word_matrix(index_to_user):
     '''
     Takes a list mapping index in table to user_id
     Returns tuple of (word feature labels, user-word binary sim matrix)
     '''
-    tfidf_vectorizer = TfidfVectorizer()
+    tfidf_vectorizer = TfidfVectorizer(tokenizer=tokenize, stop_words='english', min_df=0.1, lowercase=False)
     user_reviews = {} # dict of user => concatenation of all his reviews
 
     # concatenate each user's reviews together into user_reviews
@@ -93,10 +112,11 @@ def generate_user_word_matrix(index_to_user):
 
         for i, review_tuple in enumerate(reviews):
             # insert/concatenate user review into dict
+            review_text = review_tuple[1]
             if review_tuple[0] in user_reviews:
-                user_reviews[review_tuple[0]] += " " + review_tuple[1]
+                user_reviews[review_tuple[0]] += " " + review_text
             else:
-                user_reviews[review_tuple[0]] = review_tuple[1]
+                user_reviews[review_tuple[0]] = review_text
 
     # add each user's reviews into the corpus so that the order of the reviews
     # is the same as the order of users
@@ -145,6 +165,8 @@ def word_user_edge_list(word_labels, user_word_matrix):
 def main():
     print("Initializing friend graph...")
     friend_graph = init_friend_graph('../data/yelpFriends.txt')
+    #friend_graph = {k: friend_graph[k] for k in list(friend_graph)[:300]} #TODO REMOVE THIS
+
     friend_edges, user_to_index, index_to_user = friend_edge_list(friend_graph)
 
     # iterate through users and read in reviews
@@ -156,6 +178,8 @@ def main():
 
     print("Generating word matrix...")
     word_labels, user_word_matrix = generate_user_word_matrix(index_to_user)
+    print(len(word_labels))
+    print(word_labels)
     users_size = len(user_to_index)
     friend_edges_size = len(friend_edges)
 
