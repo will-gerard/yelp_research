@@ -106,3 +106,4 @@ venv.bak/
 *.pem
 
 data/autoencoder_sim_matrices.pkl
+data/friend_word_edge_list.txt
