@@ -1,5 +1,14 @@
 '''
 Writes an edge text file for use with the GEM implementation of SDNE or node2vec
+Run with `python3 friend_edge_list.py`
+
+Generates 2 edge lists:
+1. friend_edge_list.txt - edges between users
+2. friend_word_edge_list.txt - edges between users, and between users and friends
+
+Format of edge lists:
+The first line contains two numbers, the # of nodes and # of edges
+All subsequent lines also have two numbers, indicating edges between those nodes
 '''
 
 from collections import OrderedDict
@@ -165,7 +174,6 @@ def word_user_edge_list(word_labels, user_word_matrix):
 def main():
     print("Initializing friend graph...")
     friend_graph = init_friend_graph('../data/yelpFriends.txt')
-    #friend_graph = {k: friend_graph[k] for k in list(friend_graph)[:300]} #TODO REMOVE THIS
 
     friend_edges, user_to_index, index_to_user = friend_edge_list(friend_graph)
 
