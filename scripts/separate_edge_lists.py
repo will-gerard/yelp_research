@@ -1,7 +1,7 @@
 import random
 import math
 
-def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
+def separate_edge_lists(full_edgelist_path, nodes, training_percentage=0.9):
 	'''
 	Turn the full edge list into a list of edges to train on,
 	one to test on, and one of nonexistent edges to use in the test.
@@ -25,7 +25,7 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	L_test = num_edges - L_train
 
 	#TODO: make this number a parameter
-	num_nodes = 34
+	num_nodes = nodes
 
 	#generate L random nonexistent links
 	E_fake = []
@@ -66,19 +66,19 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	return (E_train, E_test, E_fake)
 
 def main():
-	lists = separate_edge_lists('graph/yelp_graph.edgelist')
+	lists = separate_edge_lists('graph/friend_word_two.edgelist', 11586)
 	E_train = lists[0]
 	E_test = lists[1]
 	E_fake = lists[2]
-	with open('edgelists/training.edgelist', 'w') as train_file:
+	with open('edgelists/word_training.edgelist', 'w') as train_file:
 		for edge in E_train:
 			train_file.write(str(edge[0]) + " " + str(edge[1]) + "\n")
 
-	with open('edgelists/removed.edgelist', 'w') as removed_file:
+	with open('edgelists/word_removed.edgelist', 'w') as removed_file:
 		for edge in E_test:
 			removed_file.write(str(edge[0]) + " " + str(edge[1]) + "\n")
 
-	with open('edgelists/missing.edgelist', 'w') as missing_file:
+	with open('edgelists/word_missing.edgelist', 'w') as missing_file:
 		for edge in E_fake:
 			missing_file.write(str(edge[0]) + " " + str(edge[1]) + "\n")
 

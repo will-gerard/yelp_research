@@ -4,6 +4,9 @@ from scipy.sparse import lil_matrix
 
 import numpy as np
 
+NUM_NODES = 11586
+ZERO_INDEXING_NODES = True
+
 def read_edge_array(path_to_edgelist):
 	'''
 	Read a file containing an edgelist into a list.
@@ -42,26 +45,26 @@ def generate_similarity_matrix(path_to_embeddings):
 		num_nodes, num_dimensions = [int(x) for x in next(fp).split()]
 
 		#we need to store the node embeddings in order in the matrix
-		size = (10830, num_dimensions)
+		size = (NUM_NODES, num_dimensions)
 		#node_embeddings_matrix = np.empty((size))
 		node_embeddings_matrix = lil_matrix(size)
+
+		offset = 0
+		if not ZERO_INDEXING_NODES:
+			offset = 1
 
 		#update the rows in the embeddings matrix with the appropriate values
 		for line in fp:
 			nums = [float(x) for x in line.split()]
-			node_index = int(nums[0]) #- 1 if there is no node 0 (like in the karate graph)
-			#This check is necessary become currently during the removal of edges some nodes are completely lost,
-			#so the number of nodes embedded is lower than the total number of nodes in the original graph
-			if node_index < num_nodes:
-				embedded_vector = nums[1:]
-				node_embeddings_matrix[node_index] = embedded_vector
-				#print("row")
+			node_index = int(nums[0]) - offset #if no node 0 must subtract 1
+			embedded_vector = nums[1:]
+			node_embeddings_matrix[node_index] = embedded_vector
 
 	#now time to initialize similarity matrix S to a matrix of the appropriate size, filled with zeros
-	size = (10830, 10830)
+	size = (NUM_NODES, NUM_NODES)
 	S = np.zeros(size)
 
-	for i in range(0, 10830):
+	for i in range(0, NUM_NODES):
 		#get the values returned combining the current row with each of the other rows in the matrix
 		cos_values_array = cosine_similarity(node_embeddings_matrix.getrow(i), node_embeddings_matrix)
 		#store these values as the current row in the similarity matrix
@@ -79,13 +82,17 @@ def get_edge_scores(S, E_test, E_fake):
 	@return y_scores 	A list containing the scores for the removed edges followed by the scores for the nonexistent edges
 	'''
 
+	offset = 0
+	if not ZERO_INDEXING_NODES:
+		offset = 1
+
 	y_scores = []
 	for i in range(len(E_test)):
 		e = E_test[i]
 		node1 = e[0]
 		node2 = e[1]
 		#need to subtract one if there is no node 0
-		score = S[node1][node2]
+		score = S[node1 - offset][node2 - offset]
 		y_scores.append(score)
 
 	for i in range(len(E_fake)):
@@ -93,7 +100,7 @@ def get_edge_scores(S, E_test, E_fake):
 		node1 = e[0]
 		node2 = e[1]
 		#need to subtract one if there is no node 0
-		score = S[node1][node2]
+		score = S[node1 - offset][node2 - offset]
 		y_scores.append(score)
 
 	return y_scores
@@ -102,13 +109,13 @@ def get_edge_scores(S, E_test, E_fake):
 def main():
 	#step 1: generate edge lists
 	print("READING EDGE LISTS...")
-	E_test = read_edge_array('edgelists/removed.edgelist')
-	E_fake = read_edge_array('edgelists/missing.edgelist')
+	E_test = read_edge_array('edgelists/word_removed.edgelist')
+	E_fake = read_edge_array('edgelists/word_missing.edgelist')
 	#step 2 (completed before this file is reached): embed nodes based on E_train
 
 	#step 3: create similarity matrix from the embedded node vectors
 	print("GENERATING SIMILARITY MATRIX...")
-	S = generate_similarity_matrix('emb/test_embedding.emd')
+	S = generate_similarity_matrix('emb/word_yelp.emd')
 
 	#step 4: create arrays to feed into the AUC score computation
 	print("COMPUTING AREA UNDER RECIEVER OPERATING CHARACTERISTIC CURVE...")
