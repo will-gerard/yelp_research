@@ -1,3 +1,8 @@
+'''
+Checks if there are any disconnected nodes in an edge list
+AKA if there are node indices that don't exist in the edge list b/c nothing connects to it
+'''
+
 with open("../data/edgelists/user_training.edgelist") as f:
     node_num, edge_num = [int(x) for x in f.readline().strip().split()]
     all_nums = set()
@@ -10,4 +15,4 @@ with open("../data/edgelists/user_training.edgelist") as f:
             print(i)
     all_nums = list(all_nums)
     all_nums = sorted(all_nums)
-    #print(all_nums)
+    # #print(all_nums)

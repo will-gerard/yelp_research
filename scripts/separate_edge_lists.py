@@ -1,11 +1,18 @@
 '''
 Separates an edge list into training, missing, and removed lists for AUROC link prediction tests:
-Takes in 4 command line parameters:
+Takes in 4 (optional 6) command line parameters:
 
 1: file path to original edge list
 2: file path for where to write the training edge list
 3: file path for where to write the removed edge list
 4: file path for where to write the missing edge list
+
+Optionally, you can restrict the removed and missing edges to only involve nodes and edges up to a certain index
+(e.g. missing and removed edges only involve user-user)
+We make the assumption that all user nodes are indexed first, and all user-user edges are also indexed first.
+
+5: (optional): max node index that will be involved w/ removal/missing (e.g. 10674)
+6: (optional): max edge index that will be involved w/ removal/missing (e.g. 56753)
 
 Ex:
 python3 separate_edge_lists.py ../data/friend_edge_list.txt ../data/edgelists/user_training.edgelist ../data/edgelists/user_removed.edgelist ../data/edgelists/user_missing.edgelist
@@ -18,6 +25,15 @@ EDGE_LIST_PATH = sys.argv[1]
 WRITE_TRAINING_PATH = sys.argv[2]
 WRITE_REMOVED_PATH = sys.argv[3]
 WRITE_MISSING_PATH = sys.argv[4]
+RESTRICT_INDICES = False
+
+if len(sys.argv) > 5:
+	RESTRICT_INDICES = True
+	MAX_NODE_IDX = int(sys.argv[5])
+	MAX_EDGE_IDX = int(sys.argv[6])
+else:
+	print("Separating on all edges. No index restriction (You should reconsider if you're separating user-word edges)")
+
 
 def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	'''
@@ -30,14 +46,19 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	@return tuple (E_train, E_test, E_fake)
 	'''
 	#read the edges into a set to generate E_fake
-	full_edge_set = set()
+	full_edge_list = []
 	with open(full_edgelist_path) as fp:
 		num_nodes, num_edges = [int(x) for x in next(fp).split()]
 
 		for line in fp:
 			first, second = [int(x) for x in line.split()]
 			e = (first, second)
-			full_edge_set.add(e)
+			full_edge_list.append(e)
+	full_edge_set = set(full_edge_list)
+
+	if RESTRICT_INDICES:
+		num_nodes = MAX_NODE_IDX
+		num_edges = MAX_EDGE_IDX
 
 	#get the number of elements in the testing set:
 	L_train = math.ceil(training_percentage * num_edges)
@@ -61,11 +82,10 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 
 	#select L random edges to remove
 	#get the full list of the edges, we will remove some to create the testing list
-	full_edge_list = list(full_edge_set)
 	E_train = []
 	E_test = []
 	#randomly select the edges to remove
-	indegrees = calcIndegrees(full_edge_list, num_nodes)
+	indegrees = calcIndegrees(full_edge_list[:num_edges], num_nodes)
 	indices_to_remove = list(range(num_edges))
 	random.shuffle(indices_to_remove)
 
@@ -88,7 +108,7 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 def calcIndegrees(edge_list, num_nodes):
 	'''
 	Calculates the indegrees of each node.
-	Takes in the edge list and the number of nodes
+	Takes in the edge list, number of nodes
 	Returns an array, where each index corresponds with that node. Contains
 	the number of edges that link to that node
 	'''
