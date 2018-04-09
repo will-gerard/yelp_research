@@ -1,6 +1,6 @@
 '''
 Separates an edge list into training, missing, and removed lists for AUROC link prediction tests:
-Takes in 5 command line parameters:
+Takes in 4 command line parameters:
 
 1: file path to original edge list
 2: file path for where to write the training edge list
@@ -48,7 +48,7 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	count = 0
 	while count < L_test:
 		#pick two random nodes
-		nodes = random.sample(range(1, num_nodes), 2)
+		nodes = random.sample(range(num_nodes), 2)
 		#TODO: clean this up. Is checking both directions necessary?
 		node1 = nodes[0]
 		node2 = nodes[1]
@@ -65,21 +65,38 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	E_train = []
 	E_test = []
 	#randomly select the edges to remove
-	#TODO: check to make sure removing these edges leaves the graph connected
-	x = len(full_edge_list)
-	indexes_to_remove = random.sample(range(1, x), L_test)
-	for i in indexes_to_remove:
+	indegrees = calcIndegrees(full_edge_list, num_nodes)
+	indices_to_remove = list(range(num_edges))
+	random.shuffle(indices_to_remove)
+
+	for i in indices_to_remove:
 		edge = full_edge_list[i]
-		E_test.append(edge)
+		if indegrees[edge[0]] > 1 and indegrees[edge[1]] > 1:
+			E_test.append(edge)
+			indegrees[edge[0]] -= 1
+			indegrees[edge[1]] -= 1
+			full_edge_list[i] = None
+			L_test -= 1
+			if L_test == 0:
+				break
 
-		full_edge_list[i] = None
-
-	for edge in full_edge_list:
-		if edge is not None:
-			E_train.append(edge)
+	E_train = [edge for edge in full_edge_list if edge is not None]
 
 	#the remaining edges make up the training set
 	return (E_train, E_test, E_fake)
+
+def calcIndegrees(edge_list, num_nodes):
+	'''
+	Calculates the indegrees of each node.
+	Takes in the edge list and the number of nodes
+	Returns an array, where each index corresponds with that node. Contains
+	the number of edges that link to that node
+	'''
+	indegrees = [0] * num_nodes
+	for edge in edge_list:
+		indegrees[edge[0]] += 1
+		indegrees[edge[1]] += 1
+	return indegrees
 
 def main():
 	lists = separate_edge_lists(EDGE_LIST_PATH)
