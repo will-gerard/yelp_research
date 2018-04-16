@@ -2,7 +2,7 @@
 After embedding the nodes from the training edge list, performs an AUROC link prediction test
 using the missing and removed edge lists.
 
-Takes 4 command line arguments:
+Takes 3 command line arguments:
 1: Path of removed edge list
 2: Path of missing edge list
 3: Path of embedding
@@ -10,6 +10,7 @@ Takes 4 command line arguments:
 Ex: python3 link_prediction.py ../data/edgelists/user_removed.edgelist ../data/edgelists/user_missing.edgelist ../data/emb/yelp_training_user.emb
 '''
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial.distance import cdist
 from scipy.sparse import lil_matrix
 import numpy as np
@@ -73,7 +74,7 @@ def generate_similarity_matrix(path_to_embeddings):
 	#now time to initialize similarity matrix S to a matrix of the appropriate size, filled with zeros
 	size = (num_nodes, num_nodes)
 
-	S = 1 - cdist(node_embeddings_matrix, node_embeddings_matrix, 'cosine')
+	S = cosine_similarity(node_embeddings_matrix, node_embeddings_matrix)
 	return S
 
 def get_edge_scores(S, E_test, E_fake):
