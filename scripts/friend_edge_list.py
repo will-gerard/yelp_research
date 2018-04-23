@@ -25,6 +25,7 @@ import string
 
 restaurants = {}
 stemmer = Stemmer.Stemmer('en')
+TFIDF_THRESHOLD = 0.125
 
 def readUserReviews(filename):
     '''
@@ -149,9 +150,8 @@ def generate_user_word_matrix(index_to_user):
     corpus = [user_reviews[user] for user in index_to_user]
 
     tfidf_matrix = tfidf_vectorizer.fit_transform(corpus)
-    threshold = 0.05
     # hacky way to zero out values efficiently with sparse arrays
-    tfidf_matrix[tfidf_matrix > threshold] = -1
+    tfidf_matrix[tfidf_matrix > TFIDF_THRESHOLD] = -1
     tfidf_matrix[tfidf_matrix > 0] = 0
     tfidf_matrix[tfidf_matrix == -1] = 1
     tfidf_matrix.eliminate_zeros() # necessary to actually eliminate the zero from the sparse pattern
