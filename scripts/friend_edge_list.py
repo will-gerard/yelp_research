@@ -15,15 +15,17 @@ from collections import OrderedDict
 from init_friend_graph import init_friend_graph
 from itertools import islice
 import nltk
-from nltk.stem.porter import PorterStemmer
 import numpy as np
 import os
 import re
+from scipy.sparse.csgraph import connected_components
 from sklearn.feature_extraction.text import TfidfVectorizer
+import Stemmer
 import string
 
 restaurants = {}
-stemmer = PorterStemmer()
+stemmer = Stemmer.Stemmer('en')
+TFIDF_THRESHOLD = 0.125
 
 def readUserReviews(filename):
     '''
@@ -65,6 +67,28 @@ def filter_disconnected_nodes(friend_graph):
             filtered_friends[main_user] = friend_list
     return filtered_friends
 
+def get_largest_subgraph(friend_graph):
+    '''
+    Takes in an adjacency list and finds the largest connected subgraph
+    @param friend_graph: {user_id: [user_id, ...]}
+
+    @return filtered_graph: {user_id: [user_id, ...]}
+    '''
+    index_to_user = list(friend_graph.keys())
+    user_to_index = {k: v for v, k in enumerate(index_to_user)}
+    num_nodes = len(index_to_user)
+    graph = np.zeros((num_nodes, num_nodes))
+    for user1, friend_list in friend_graph.items():
+        for user2 in friend_list:
+            idx1 = user_to_index.get(user1)
+            idx2 = user_to_index.get(user2)
+            if (idx1 is not None and idx2 is not None):
+                graph[idx1, idx2] = 1
+                graph[idx2, idx1] = 1
+    N_components, component_list = connected_components(graph, directed=False)
+    components_size = [np.sum(component_list == i) for i in range(N_components)]
+    largest_graph_index = max(enumerate(components_size),key=lambda x: x[1])[0]
+    return {k: v for k, v in friend_graph.items() if component_list[user_to_index[k]] == largest_graph_index}
 
 def friend_edge_list(friend_graph):
     '''
@@ -78,6 +102,7 @@ def friend_edge_list(friend_graph):
     @return (edge list tuples, dictionary of user_id to index, list of user_ids)
     '''
     friend_graph = filter_disconnected_nodes(friend_graph)
+    friend_graph = get_largest_subgraph(friend_graph)
     index_to_user = list(friend_graph.keys())
     user_to_index = {k: v for v, k in enumerate(index_to_user)}
     edges = set()
@@ -91,18 +116,11 @@ def friend_edge_list(friend_graph):
     return (edges, user_to_index, index_to_user)
 
 
-def stem_tokens(tokens, stemmer):
-    stemmed = []
-    for item in tokens:
-        stemmed.append(stemmer.stem(item))
-    return stemmed
-
-
 def tokenize(text):
     text.translate(str.maketrans('','',string.punctuation))
     tokens = nltk.tokenize.casual_tokenize(text, preserve_case=False, reduce_len=True)
     tokens = [re.sub('\d+', 'NUM', s) for s in tokens]
-    stems = stem_tokens(tokens, stemmer)
+    stems = [stemmer.stemWord(item) for item in tokens]
     return stems
 
 
@@ -111,7 +129,7 @@ def generate_user_word_matrix(index_to_user):
     Takes a list mapping index in table to user_id
     Returns tuple of (word feature labels, user-word binary sim matrix)
     '''
-    tfidf_vectorizer = TfidfVectorizer(tokenizer=tokenize, stop_words='english', min_df=0.1, lowercase=False)
+    tfidf_vectorizer = TfidfVectorizer(tokenizer=tokenize, stop_words='english', min_df=3, lowercase=False)
     user_reviews = {} # dict of user => concatenation of all his reviews
 
     # concatenate each user's reviews together into user_reviews
@@ -131,11 +149,18 @@ def generate_user_word_matrix(index_to_user):
     # is the same as the order of users
     corpus = [user_reviews[user] for user in index_to_user]
 
-
     tfidf_matrix = tfidf_vectorizer.fit_transform(corpus)
-    tfidf_matrix[tfidf_matrix > 0] = 1 ###### If we only care about presence/absence of words
-
-    return (tfidf_vectorizer.get_feature_names(), tfidf_matrix)
+    # hacky way to zero out values efficiently with sparse arrays
+    tfidf_matrix[tfidf_matrix > TFIDF_THRESHOLD] = -1
+    tfidf_matrix[tfidf_matrix > 0] = 0
+    tfidf_matrix[tfidf_matrix == -1] = 1
+    tfidf_matrix.eliminate_zeros() # necessary to actually eliminate the zero from the sparse pattern
+    # remove word features that are no longer important (columns that are zeros)
+    words_non_zero = set(np.nonzero(tfidf_matrix)[1])
+    tfidf_matrix = tfidf_matrix[:, sorted(words_non_zero)]
+    names = tfidf_vectorizer.get_feature_names()
+    names = [n for idx, n in enumerate(names) if idx in words_non_zero]
+    return (names, tfidf_matrix)
 
 
 def remove_dups(user_ratings):

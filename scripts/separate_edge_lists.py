@@ -19,6 +19,9 @@ python3 separate_edge_lists.py ../data/friend_edge_list.txt ../data/edgelists/us
 '''
 import random
 import math
+import numpy as np
+from scipy.sparse import lil_matrix
+from scipy.sparse.csgraph import connected_components
 import sys
 
 EDGE_LIST_PATH = sys.argv[1]
@@ -86,20 +89,37 @@ def separate_edge_lists(full_edgelist_path, training_percentage=0.9):
 	E_test = []
 	#randomly select the edges to remove
 	indegrees = calcIndegrees(full_edge_list[:num_edges], num_nodes)
+	adj_matrix = lil_matrix(toAdjMatrix(full_edge_list[:num_edges], num_nodes))
 	indices_to_remove = list(range(num_edges))
 	random.shuffle(indices_to_remove)
 
+	temp_count = 0
+	print("Total edges: " + str(len(indices_to_remove)))
+	print("We need to remove 10% of those edges")
 	for i in indices_to_remove:
+		print("Checking edge " + str(temp_count), end='\r')
 		edge = full_edge_list[i]
-		if indegrees[edge[0]] > 1 and indegrees[edge[1]] > 1:
+		# try removing the edge
+		adj_matrix[edge[0], edge[1]] = 0
+		adj_matrix[edge[1], edge[0]] = 0
+		N_components, _ = connected_components(adj_matrix, directed=False)
+
+		if indegrees[edge[0]] > 1 and indegrees[edge[1]] > 1 and N_components == 1:
+			# Valid edge to remove
 			E_test.append(edge)
 			indegrees[edge[0]] -= 1
 			indegrees[edge[1]] -= 1
 			full_edge_list[i] = None
 			L_test -= 1
 			if L_test == 0:
+				# Success condition, we are done removing edges
+				print("Success")
 				break
-
+		else:
+			# Invalid edge, reset the adj matrix removal
+			adj_matrix[edge[0], edge[1]] = 1
+			adj_matrix[edge[1], edge[0]] = 1
+		temp_count += 1
 	E_train = [edge for edge in full_edge_list if edge is not None]
 
 	#the remaining edges make up the training set
@@ -117,6 +137,16 @@ def calcIndegrees(edge_list, num_nodes):
 		indegrees[edge[0]] += 1
 		indegrees[edge[1]] += 1
 	return indegrees
+
+def toAdjMatrix(edge_list, num_nodes):
+	'''
+	Takes in an edge list and turns it into an adjacency matrix
+	'''
+	graph = np.zeros((num_nodes, num_nodes))
+	for edge in edge_list:
+		graph[edge[0], edge[1]] = 1
+		graph[edge[1], edge[0]] = 1
+	return graph
 
 def main():
 	lists = separate_edge_lists(EDGE_LIST_PATH)
