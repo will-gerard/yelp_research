@@ -2,11 +2,11 @@
 
 '''
 Determines the significance of correlation between friendship in a Yelp friend
-graph and similar text review vocabulary usage. Reads the Yelp friends graph and
-the user reviews map and performs randomization on the data. A chi square value is
-calculated on the data set as a measure of correlation. This value is calculated
-for each individual restaurant when possible and summed together to form a larger
-chi square statistic.
+graph and the cosine similarity between the tfidf vectors of the words in the reviews for a particular restaurant. 
+Reads the Yelp friends graph and the pregenerated cosine similaity matrix and performs a randomization test on the data. 
+A chi square value is calculated on the data set which measures the strength of this correlation. 
+This value is calculated for each individual restaurant and the results are summed 
+together to form a larger chi square statistic.
 
 Restaurants where expected value in the chisq contingency table is 0 are ignored.
 
@@ -16,8 +16,8 @@ is determined based on the randomized data to determine significance.
 
 Argument 1: RAND_NUM
 
-Argument 2: 'score' or 'edge' to determine if reviews should be randomized or
-    edges in the friend graph
+Argument 2: 'score' or 'edge' to determine if scores or edges should be randomized 
+in the friend graph.
 '''
 
 from correlation_test import (remove_dups_to_dict, get_user_combos_from_ratings_map,

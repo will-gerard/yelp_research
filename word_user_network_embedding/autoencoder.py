@@ -6,6 +6,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+'''
+A pytorch implementation of a three layer neural network to embed word and user vectors from a
+Yelp dataset into a specified lower dimensional space. 
+'''
+
 D_OUT = 3 # number of dimensions in the encoded vectors
 H1_DIM = 64 # dimension of first hidden layer
 H2_DIM = 12 # dimension of second hidden layer
