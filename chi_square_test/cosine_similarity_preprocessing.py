@@ -82,7 +82,8 @@ def readUserReviews(filename):
 def generate_cosine_similarity_matrix():
 	'''
 	Take in the rest_id -> [(user_id_1, review_1), ...] dictionary.
-	For each restaurant, generate a tfidf matrix of the corpus (all the reviews for that particular restaurant)
+	For each restaurant, generate a tfidf matrix of the corpus (all the reviews for that particular restaurant).
+	Each review is a separate document in the corpus.
 	Use the tfidf matrix to generate a cosine similarity matrix.
 	'''
 	global restaurants

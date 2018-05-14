@@ -2,12 +2,13 @@
 
 '''
 Determines the significance of correlation between friendship in a Yelp friend
-graph and equal ratings. Reads the Yelp friends graph and the user ratings map and
-performs randomization on the data. A chi square value is calculated on the data
-set as a measure of correlation. This value is calculated for each individual restaurant
-when possible and summed together to form a larger chi square statistic.
+graph and equal ratings of a particular restaurant. Reads the Yelp friends graph 
+and the user ratings map and performs randomization on the data. A chi square 
+value is calculated on the data set which measures the strength of this correlation. 
+This value is calculated for each individual restaurant and the results are summed 
+together to form a larger chi square statistic.
 
-Restaurants where expected value in the chisq contingency table are ignored.
+Restaurants where expected value in the chisq contingency table  is zero are ignored.
 
 This is repeated RAND_NUM times on randomized data to create a distribution,
 and then the percentile of the actual chi square statistic for the real data set
@@ -15,8 +16,8 @@ is determined based on the randomized data to determine significance.
 
 Argument 1: RAND_NUM 
 
-Argument 2: 'score' or 'edge' to determine if scores should be randomized or
-    edges in the friend graph
+Argument 2: 'score' or 'edge' to determine if scores or edges should be randomized 
+in the friend graph.
 '''
 
 from init_friend_graph import init_friend_graph
